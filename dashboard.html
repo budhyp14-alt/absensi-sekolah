@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 20px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin: 0 0 10px;
+            color: #666;
+        }
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>Absensi Face Recognition</h2>
+        <div class="nav-links">
+            <span id="userDisplay"></span>
+            <a href="attendance.html">Absensi</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3>Total Siswa</h3>
+            <div class="number" id="totalSiswa">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>Hadir Hari Ini</h3>
+            <div class="number" id="totalHadir">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>Persentase</h3>
+            <div class="number" id="persentase">0%</div>
+        </div>
+    </div>
+
+    <h3>Daftar Hadir Hari Ini</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>NIS</th>
+                <th>Nama</th>
+                <th>Jam</th>
+            </tr>
+        </thead>
+        <tbody id="attendanceTable">
+            <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbyzyDapcsRX1c-uiNyKxZRSNFnX1xVWkEXYmJ-jv_o_a_uER7qWJ4yPc9cJ3E8VF601TQ/exec/exec';
+        const user = JSON.parse(sessionStorage.getItem('user'));
+
+        if (!user) {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('userDisplay').textContent = `Halo, ${user.full_name}`;
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        async function loadDashboard() {
+            const studentsRes = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getStudents' })
+            });
+            const studentsData = await studentsRes.json();
+
+            const attendanceRes = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getTodayAttendance' })
+            });
+            const attendanceData = await attendanceRes.json();
+
+            if (studentsData.success) {
+                document.getElementById('totalSiswa').textContent = studentsData.data.length;
+            }
+
+            if (attendanceData.success) {
+                const hadir = attendanceData.data.length;
+                document.getElementById('totalHadir').textContent = hadir;
+                
+                const total = studentsData.success ? studentsData.data.length : 0;
+                const persen = total > 0 ? Math.round((hadir / total) * 100) : 0;
+                document.getElementById('persentase').textContent = persen + '%';
+
+                let html = '';
+                attendanceData.data.forEach((item, index) => {
+                    html += `<tr>
+                        <td>${index + 1}</td>
+                        <td>${item.nis}</td>
+                        <td>${item.nama}</td>
+                        <td>${item.check_in}</td>
+                    </tr>`;
+                });
+
+                if (html === '') {
+                    html = '<tr><td colspan="4" style="text-align: center;">Belum ada absensi</td></tr>';
+                }
+
+                document.getElementById('attendanceTable').innerHTML = html;
+            }
+        }
+
+        loadDashboard();
+        setInterval(loadDashboard, 10000);
+    </script>
+</body>
+</html>
